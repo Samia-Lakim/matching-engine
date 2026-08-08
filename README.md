@@ -1,62 +1,62 @@
 # matching-engine
 
-A limit order matching engine in C, built on top of my [payment-ledger](https://github.com/Samia-Lakim/payment-ledger) project — every executed trade settles as a real transfer in a double-entry ledger, not just a printed message.
+A limit order matching engine written in C, built as a follow-up to my [payment-ledger](https://github.com/Samia-Lakim/payment-ledger) project. Trades that get matched here actually settle through that ledger — they're not just printed to the console.
 
-## What this is
+## What it does
 
-Think of a stock exchange: people submit buy orders and sell orders, and something has to pair them up the moment a buyer and seller agree on a price. That's what this is — a simplified version of that matching logic, for a single asset, all in memory.
+This is basically a simplified version of what sits at the core of a stock exchange. People submit orders saying "I want to buy X at this price" or "I want to sell X at this price," and the engine's job is to match buyers and sellers together the moment they agree on a price.
 
-The book keeps two sorted lists:
-- **bids** (buy orders), highest price first
-- **asks** (sell orders), lowest price first
+It keeps two sorted lists:
+- **bids** (buy orders), sorted highest price first
+- **asks** (sell orders), sorted lowest price first
 
-When a new order comes in, it checks whether it crosses the best price on the other side. If it does, a trade happens immediately. If there's quantity left over (or nothing to match against at all), it rests in the book waiting for a future order to match it.
+When a new order comes in, it checks whether it crosses the best price on the other side of the book. If it does, a trade happens right away. If it doesn't (or there's leftover quantity after a partial match), the remainder just sits in the book, waiting for a future order to match it.
 
-## Why it settles through the ledger
+## Why I connected it to the ledger
 
-A matching engine on its own can tell you "these two orders matched," but it doesn't actually move any money — it's just deciding *what should happen*. Actually moving money and keeping that auditable is a separate problem, which I'd already solved in my payment-ledger project. So instead of duplicating that logic here, every `Trade` this engine produces gets passed into `transfer()` from the ledger, using the same idempotency keys so a trade can never accidentally get settled twice.
+I built `payment-ledger` first, and initially this was going to be a separate thing. But a matching engine that just says "these two orders matched" and stops isn't actually doing the interesting part — real money still has to move, and it has to move correctly. So instead of writing a second, simpler way to track balances here, every trade this engine produces gets handed off to `transfer()` from the ledger, using the same idempotency keys so nothing can get settled twice by accident.
 
-This also keeps the two systems independently testable — I can unit-test the matching logic (`tests/test_order_book.c`) with zero ledger involved, since `submit_order()` just returns a list of `Trade` structs and never touches money itself.
+I kept the two pieces separate on purpose: `submit_order()` just returns a list of `Trade` structs and doesn't touch the ledger at all. That way I can test the matching logic on its own (see `tests/`) without needing a ledger involved, and the ledger doesn't need to know anything about how a trade came to exist.
 
-## Project structure
+## Structure
 
 ```
 inc/
-  order.h        A single order: side, price, quantity, account, timestamp
-  trade.h        A single executed trade — output of the matcher, not tied to the ledger
-  order_book.h   The book itself + submit_order()
-  account.h, entry.h, ledger.h   copied from payment-ledger, used for settlement
+  order.h        one order: side, price, quantity, account, timestamp
+  trade.h        one executed trade (output of matching, no ledger logic)
+  order_book.h   the book + submit_order()
+  account.h, entry.h, ledger.h   from payment-ledger, used for settlement
 lib/
-  order_book.c   Matching logic
-  account.c, ledger.c   copied from payment-ledger
-  main.c         Demo: builds a small book, matches a trade, settles it, checks balances
+  order_book.c   the actual matching logic
+  account.c, ledger.c   from payment-ledger
+  main.c         demo: builds a small book, matches a trade, settles it
 tests/
-  test_order_book.c   Matching logic tests (no ledger involved)
+  test_order_book.c   matching logic tests, no ledger involved
 ```
 
 ## Matching rules (v1)
 
-- One asset only, limit orders only (no market orders yet)
-- Price-time priority: better prices match first; if two orders share a price, whichever was resting first gets matched first
-- An incoming order can sweep through multiple resting orders on the other side until it's fully filled or the book runs out
-- Trade executes at the **resting** order's price, not the incoming order's price (standard exchange behaviour)
+- One asset, limit orders only — no market orders yet
+- Price-time priority: better price wins; if two orders are at the same price, whichever was placed first gets matched first
+- One incoming order can match against several resting orders in a row if needed, until it's fully filled or the book runs dry
+- A trade executes at the price of the order that was already resting in the book, not the new incoming order — that's how real exchanges do it
 
-## Build & run
+## Running it
 
 ```
-make demo   # builds and runs the demo: matches a trade end-to-end and settles it
-make test   # builds and runs the matching logic unit tests
+make demo   # runs the full example below and settles it through the ledger
+make test   # runs the matching logic tests (17 checks)
 ```
 
-## Example: how a trade happens
+## Example
 
-1. Bob sells 10 units at 150.00 — no buyers yet, so it just rests in the book.
-2. Alice bids 10 units at 148.00 — doesn't cross Bob's 150.00, so it also rests.
-3. Charlie bids 10 units at 151.00 — this crosses Bob's ask. A trade executes at Bob's price (150.00), Bob's order is removed from the book, and the engine hands off a `Trade` to the ledger, which moves $1,500 from Charlie to Bob.
+1. Bob places a sell order: 10 units at $150. No buyers yet, so it just waits.
+2. Alice places a buy order: 10 units, max $148. Doesn't cross Bob's $150, so it also waits.
+3. Charlie places a buy order: 10 units, max $151. This crosses Bob's ask — trade executes at $150 (Bob's price), and $1,500 moves from Charlie to Bob through the ledger.
 
-## What I'd add next
+## What's next
 
-- Order cancellation
-- Market orders (match immediately at whatever price is available, no limit)
-- Multiple assets/symbols instead of one hardcoded book
-- Persisting the order book and trade history to disk
+- Order cancellation (can't currently pull an order back out of the book)
+- Market orders
+- More than one asset at a time
+- Saving the book/trade history to disk instead of keeping everything in memory
