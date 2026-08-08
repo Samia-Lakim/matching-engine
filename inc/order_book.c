@@ -10,9 +10,7 @@ void order_book_init(OrderBook *book) {
     book->next_order_id = 1;
 }
 
-/* Inserts into bids, kept sorted highest-price-first. On equal price,
- * the new order goes AFTER existing ones at that price (time priority:
- * whoever was resting first gets matched first). */
+
 static void insert_bid(OrderBook *book, Order o) {
     uint32_t i = 0;
     while (i < book->bid_count && book->bids[i].price >= o.price) {
@@ -23,7 +21,6 @@ static void insert_bid(OrderBook *book, Order o) {
     book->bid_count++;
 }
 
-/* Inserts into asks, kept sorted lowest-price-first, same time-priority rule. */
 static void insert_ask(OrderBook *book, Order o) {
     uint32_t i = 0;
     while (i < book->ask_count && book->asks[i].price <= o.price) {
@@ -54,7 +51,6 @@ int submit_order(OrderBook *book, Order new_order, Trade *trades_out) {
     int64_t remaining = new_order.quantity;
 
     if (new_order.side == SIDE_BUY) {
-        /* Sweep the ask side while the best ask crosses our limit price. */
         while (remaining > 0 && book->ask_count > 0 &&
                book->asks[0].price <= new_order.price &&
                trade_count < MAX_TRADES_PER_SUBMIT) {
@@ -67,7 +63,7 @@ int submit_order(OrderBook *book, Order new_order, Trade *trades_out) {
             t->sell_order_id      = best_ask->id;
             t->buyer_account_id   = new_order.account_id;
             t->seller_account_id  = best_ask->account_id;
-            t->price              = best_ask->price; /* resting order's price wins */
+            t->price              = best_ask->price; 
             t->quantity           = matched_qty;
             t->timestamp          = new_order.timestamp;
 
@@ -84,7 +80,7 @@ int submit_order(OrderBook *book, Order new_order, Trade *trades_out) {
             insert_bid(book, new_order);
         }
 
-    } else { /* SIDE_SELL */
+    } else {
         while (remaining > 0 && book->bid_count > 0 &&
                book->bids[0].price >= new_order.price &&
                trade_count < MAX_TRADES_PER_SUBMIT) {
@@ -97,7 +93,7 @@ int submit_order(OrderBook *book, Order new_order, Trade *trades_out) {
             t->sell_order_id      = new_order.id;
             t->buyer_account_id   = best_bid->account_id;
             t->seller_account_id  = new_order.account_id;
-            t->price              = best_bid->price; /* resting order's price wins */
+            t->price              = best_bid->price;
             t->quantity           = matched_qty;
             t->timestamp          = new_order.timestamp;
 

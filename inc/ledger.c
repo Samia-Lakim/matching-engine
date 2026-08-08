@@ -10,16 +10,11 @@ void ledger_init(Ledger *l) {
     l->entry_count = 0;
     l->next_entry_id = 1;
 
-    /* Every real money movement in or out of the system is modelled as
-     * a transfer to/from this account, so deposit()/withdraw() never
-     * have to break the double-entry invariant. */
     Account *sys = create_account(l, "SYSTEM");
     l->system_account_id = sys->id;
 }
 
-/* Linear scan for a duplicate idempotency key. MAX_ENTRIES is small
- * enough (8192) that this is fine for a teaching/demo project; a real
- * system would index this with a hash map. */
+
 static int idempotency_key_seen(Ledger *l, const char *key) {
     if (key == NULL || key[0] == '\0') {
         return 0; /* no key provided -> no dedup requested */
@@ -50,14 +45,11 @@ int post_entry(Ledger *l,
     }
 
     if (idempotency_key_seen(l, idempotency_key)) {
-        /* Retrying the exact same request (e.g. a client that timed out
-         * and resent) is a no-op, not an error the caller needs to
-         * handle specially — the operation has already happened. */
+        
         return LEDGER_OK;
     }
 
-    /* System account is allowed to go negative (it represents the
-     * outside world); ordinary user accounts cannot overdraw. */
+   
     if (debit_acc->type != ACCOUNT_SYSTEM &&
         debit_acc->cached_balance < amount) {
         return LEDGER_ERR_INSUFFICIENT_FUNDS;
@@ -86,9 +78,7 @@ int post_entry(Ledger *l,
         e->description[0] = '\0';
     }
 
-    /* Update cached balances. These are a performance shortcut only —
-     * ledger_verify_integrity() proves they stay consistent with the
-     * entry log, which remains the source of truth. */
+ 
     debit_acc->cached_balance  -= amount;
     credit_acc->cached_balance += amount;
 
@@ -97,14 +87,12 @@ int post_entry(Ledger *l,
 
 int deposit(Ledger *l, uint32_t account_id, int64_t amount,
             const char *idempotency_key) {
-    /* Money enters from outside the system: debit SYSTEM, credit the user. */
     return post_entry(l, l->system_account_id, account_id, amount,
                        idempotency_key, "deposit");
 }
 
 int withdraw(Ledger *l, uint32_t account_id, int64_t amount,
              const char *idempotency_key) {
-    /* Money leaves the system: debit the user, credit SYSTEM. */
     return post_entry(l, account_id, l->system_account_id, amount,
                        idempotency_key, "withdrawal");
 }
