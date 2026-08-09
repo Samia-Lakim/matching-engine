@@ -1,6 +1,6 @@
 # matching-engine
 
-A limit order matching engine written in C, built as a follow-up to my [payment-ledger](https://github.com/Samia-Lakim/payment-ledger) project. Trades that get matched here actually settle through that ledger — they're not just printed to the console.
+A limit order matching engine written in C, built as a follow-up to my [payment-ledger](https://github.com/Samia-Lakim/payment-ledger) project. Trades that get matched here actually settle through that ledger ... they're not just printed to the console.
 
 ## What it does
 
