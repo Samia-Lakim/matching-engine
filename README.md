@@ -14,7 +14,7 @@ When a new order comes in, it checks whether it crosses the best price on the ot
 
 ## Why I connected it to the ledger
 
-I built `payment-ledger` first, and initially this was going to be a separate thing. But a matching engine that just says "these two orders matched" and stops isn't actually doing the interesting part — real money still has to move, and it has to move correctly. So instead of writing a second, simpler way to track balances here, every trade this engine produces gets handed off to `transfer()` from the ledger, using the same idempotency keys so nothing can get settled twice by accident.
+I built `payment-ledger` first, and initially this was going to be a separate thing. But a matching engine that just says "these two orders matched" and stops isn't actually doing the interesting part , real money still has to move, and it has to move correctly. So instead of writing a second, simpler way to track balances here, every trade this engine produces gets handed off to `transfer()` from the ledger, using the same idempotency keys so nothing can get settled twice by accident.
 
 I kept the two pieces separate on purpose: `submit_order()` just returns a list of `Trade` structs and doesn't touch the ledger at all. That way I can test the matching logic on its own (see `tests/`) without needing a ledger involved, and the ledger doesn't need to know anything about how a trade came to exist.
 
@@ -36,7 +36,7 @@ tests/
 
 ## Matching rules (v1)
 
-- One asset, limit orders only — no market orders yet
+- One asset, limit orders only , no market orders yet
 - Price-time priority: better price wins; if two orders are at the same price, whichever was placed first gets matched first
 - One incoming order can match against several resting orders in a row if needed, until it's fully filled or the book runs dry
 - A trade executes at the price of the order that was already resting in the book, not the new incoming order — that's how real exchanges do it
