@@ -66,5 +66,26 @@ int main(void) {
     printf("\nIntegrity check: %s\n",
            ledger_verify_integrity(&ledger) == LEDGER_OK ? "OK" : "FAILED");
 
+    printf("\n== Market microstructure ==\n");
+    printf("Best bid: %lld, Best ask: %lld, Spread: %lld\n",
+        (long long)best_bid(&book), (long long)best_ask(&book), (long long)get_spread(&book));
+    printf("Bid depth: %lld, Ask depth: %lld\n",
+        (long long)get_depth(&book, SIDE_BUY), (long long)get_depth(&book, SIDE_SELL));
+
+    printf("\n== Market order: Bob sells 10 @ market (no limit price) ==\n");
+    Order bob_market_sell = { .account_id = bob->id, .side = SIDE_SELL, .order_type = ORDER_MARKET, .quantity = 10 };
+    trade_count = submit_order(&book, bob_market_sell, trades);
+    printf("Market sell -> %d trade(s)\n", trade_count);
+    for (int i = 0; i < trade_count; i++) {
+        settle_trade(&ledger, &trades[i], trade_index++);
+    }
+    print_book(&book);
+
+    printf("\nFinal balances: Alice=%lld Bob=%lld Charlie=%lld\n",
+        (long long)get_balance(&ledger, alice->id),
+        (long long)get_balance(&ledger, bob->id),
+        (long long)get_balance(&ledger, charlie->id));       
+
     return 0;
 }
+

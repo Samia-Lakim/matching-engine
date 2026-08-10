@@ -24,4 +24,9 @@ int submit_order(OrderBook *book, Order new_order, Trade *trades_out);
 
 void print_book(OrderBook *book);
 
+int64_t best_bid(OrderBook *book);
+int64_t best_ask(OrderBook *book);
+int64_t get_spread(OrderBook *book);
+int64_t get_depth(OrderBook *book, Side side);
+
 #endif

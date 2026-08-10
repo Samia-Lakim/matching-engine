@@ -9,6 +9,10 @@ typedef enum {
     SIDE_SELL = 1
 } Side;
 
+typedef enum {
+    ORDER_LIMIT = 0,
+    ORDER_MARKET = 1
+} OrderType;
 
 typedef struct Order {
     uint64_t id;
@@ -16,7 +20,9 @@ typedef struct Order {
     Side     side;
     int64_t  price;        
     int64_t  quantity;     
-    time_t   timestamp;   
+    time_t   timestamp;
+    OrderType order_type;   
 } Order;
+
 
 #endif

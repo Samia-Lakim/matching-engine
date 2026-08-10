@@ -52,8 +52,9 @@ int submit_order(OrderBook *book, Order new_order, Trade *trades_out) {
 
     if (new_order.side == SIDE_BUY) {
         while (remaining > 0 && book->ask_count > 0 &&
-               book->asks[0].price <= new_order.price &&
-               trade_count < MAX_TRADES_PER_SUBMIT) {
+                (new_order.order_type == ORDER_MARKET ||
+                book->asks[0].price <= new_order.price) &&
+                trade_count < MAX_TRADES_PER_SUBMIT) {
 
             Order *best_ask = &book->asks[0];
             int64_t matched_qty = min_i64(remaining, best_ask->quantity);
@@ -75,15 +76,16 @@ int submit_order(OrderBook *book, Order new_order, Trade *trades_out) {
             }
         }
 
-        if (remaining > 0) {
+        if (remaining > 0 && new_order.order_type == ORDER_LIMIT) {
             new_order.quantity = remaining;
-            insert_bid(book, new_order);
-        }
+            insert_ask(book, new_order);
+}
 
     } else {
         while (remaining > 0 && book->bid_count > 0 &&
-               book->bids[0].price >= new_order.price &&
-               trade_count < MAX_TRADES_PER_SUBMIT) {
+            (new_order.order_type == ORDER_MARKET ||
+            book->bids[0].price >= new_order.price) &&
+            trade_count < MAX_TRADES_PER_SUBMIT) {
 
             Order *best_bid = &book->bids[0];
             int64_t matched_qty = min_i64(remaining, best_bid->quantity);
@@ -105,9 +107,9 @@ int submit_order(OrderBook *book, Order new_order, Trade *trades_out) {
             }
         }
 
-        if (remaining > 0) {
+        if (remaining > 0  && new_order.order_type == ORDER_LIMIT) {
             new_order.quantity = remaining;
-            insert_ask(book, new_order);
+            insert_bid(book, new_order);
         }
     }
 
@@ -134,4 +136,35 @@ void print_book(OrderBook *book) {
     if (max_rows == 0) {
         printf("(empty)\n");
     }
+}
+
+int64_t best_bid(OrderBook *book) {
+    return book->bid_count > 0 ? book->bids[0].price : -1;
+}
+
+int64_t best_ask(OrderBook *book) {
+    return book->ask_count > 0 ? book->asks[0].price : -1;
+}
+
+int64_t get_spread(OrderBook *book) {
+    int64_t bid = best_bid(book);
+    int64_t ask = best_ask(book);
+    if (bid == -1 || ask == -1) {
+        return -1;
+    }
+    return ask - bid;
+}
+
+int64_t get_depth(OrderBook *book, Side side) {
+    int64_t total = 0;
+    if (side == SIDE_BUY) {
+        for (uint32_t i = 0; i < book->bid_count; i++) {
+            total += book->bids[i].quantity;
+        }
+    } else {
+        for (uint32_t i = 0; i < book->ask_count; i++) {
+            total += book->asks[i].quantity;
+        }
+    }
+    return total;
 }
